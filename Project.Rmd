@@ -1,0 +1,510 @@
+---
+title: "Project"
+author: "Mangukiya Jaldip Veljibhai"
+date: "2023-04-18"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# set the work directory
+knitr::opts_knit$set(root.dir = "D:/Term1/Data_Analysis")
+```
+
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+# clear the workspace & environment and set the format
+if(!is.null(dev.list())) dev.off()
+cat("\014")
+rm(list=ls())
+options(scipen=9)
+```
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+# install and attach readr package
+if(!require(readr)){install.packages("readr")}
+library("readr")
+```
+
+*Interpretation*\
+Install and attach the ***readr*** package to work with the text dataset.
+
+```{r}
+# Read a txt file, named "PROG8430-23W-Final-train.txt and change it to the dataframe"
+data <- read.table("PROG8430-23W-Final-train.txt", sep = ",", header = TRUE)
+data <- as.data.frame(data)
+```
+
+*Interpretation*\
+Read the "PROG8430_Assign04_23W.txt" file and store it in the data variable. Transform this variable into a dataframe for further processing.
+
+```{r}
+# convert character variable to factor
+
+data <- as.data.frame(unclass(data), stringsAsFactors = TRUE)
+head(data, 5)
+```
+
+*Interpretation*\
+Transform character variables to factor variable for further processing.
+
+```{r}
+# install and attach lattice, pastecs package
+if(!require(lattice)){install.packages("lattice")}
+library("lattice")
+
+if(!require(pastecs)){install.packages("pastecs")}
+library("pastecs")
+```
+
+*Interpretation*\
+Install and attach required package for dataset exploration.
+
+```{r}
+# Explore statistics of each variable
+round(stat.desc(data), 3)
+```
+
+```{r}
+# make graphs of variables for exploring the data
+par(mfrow=c(3,2))    
+
+for (i in 1:ncol(data)) {
+  if (is.numeric(data[,i])) {
+    hist(data[,i], main=names(data)[i], xlab="", col=i+1, border='yellow')
+  } else if (is.factor(data[,i])) {
+      cat_tbl <- table(data[i])
+      barplot(cat_tbl, main=names(data)[i], col=i+4, border='yellow')
+  }
+}
+
+par(mfrow=c(1,1))
+```
+
+*Interpretation*\
+To acquire a broad perspective of the data, create a histogram of the numerical columns and a bar plot of the categorical variables.
+
+```{r}
+# make graphs for checking the outliers in the dataset
+par(mfrow=c(3,2))
+
+for (i in 1:ncol(data)) {
+  if (is.numeric(data[,i])) {
+    boxplot(data[,i], main=names(data)[i],xlab="", horizontal=TRUE, 
+            pch=i+1, col=i+1)
+  }
+}
+
+par(mfrow=c(1,1))
+```
+
+*Interpretation*\
+After analysing the box plots, I noticed some of the variables have outliers such as Hours.
+
+```{r}
+data <- data[, -which(names(data) == "X")]
+head(data, 5)
+```
+
+*Interpretation:*\
+I removed the "X" column, which does not provide any useful analytical information.
+
+```{r}
+# remove outliers from the Hours (Hours worked in a typical week)
+
+data <- data[!data$Hours < 0,]
+dim(data)
+```
+
+*Interpretation:* I removed the record which has working hours less than 0, which is not feasible.
+
+```{r}
+# make a target variable(RES), remove Inc
+data$RES <- as.factor(ifelse(data$Inc == ">$50K",1,0))
+data <- data[, -which(names(data) == "Inc")]
+head(data, 5)
+```
+
+*Interpretation*\
+Make RES a new variable with the value 1 if Inc is greater than \$50K and 0 otherwise. After that, remove the column Inc from the dataset; otherwise, Inc and RES show a significant correlation.
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+#Load packages for correlations
+
+if(!require(polycor)){install.packages("polycor")}
+library("polycor")
+```
+
+*Interpretation*\
+Install and attach the polycor package to make correlation table between the dataset variables.
+
+```{r}
+# correlations between the variables
+cor <- hetcor(data)
+round(cor$correlations,2)
+```
+
+*Interpretation*\
+Target variable RES is strong positive correlated with Hours, and week correlation with Capital and Occupation.
+
+```{r}
+# to generate same testing and training data every time
+set.seed(9187)
+
+# 80% of dataset as training set and remaining 20% as testing set
+sample_data <- sample(c(TRUE, FALSE), nrow(data), replace=TRUE, prob=c(0.80,0.20))
+train <- data[sample_data, ]
+test <- data[!sample_data, ]
+```
+
+*Interpretation*\
+I utilised the seed function along with the last four digits of my student ID as the seed to consistently generate similar training and testing datasets. Using the sample function, divide the dataset in half: 80% for training and 20% for testing. Filter the data using this variable, then put it in train and test.
+
+```{r}
+# full logistic regression model
+full_reg <- glm(RES ~ ., data=train, family="binomial", na.action=na.omit)
+summary(full_reg)
+```
+
+*Interpretation*\
+Utilizing the "generalized linear model(glm)" function, create a full logistic regression model with the train dataset. All other variables as independent and RES would be the target variable.
+
+***Evaluate Model***
+
+1.  Fisher Scoring Iteration is 7, which is converged.
+
+2.  Residuals deviance is 14410
+
+3.  Residuals are symmetrical and median is near 0.
+
+4.  AIC is 14444
+
+```{r}
+# logistic regression model using step-wise selection
+start_stp <- Sys.time()
+
+step_reg <- step(full_reg)
+summary(step_reg)
+
+end_stp <- Sys.time()
+```
+
+*Interpretation*\
+create a stepwise logistic regression model with the train dataset. All other variables as independent and RES would be the target variable.
+
+***Evaluate Model***
+
+1.  Fisher Scoring Iteration is 7, which is converged.
+
+2.  Residuals deviance is 14410
+
+3.  Residuals are symmetrical and median is near 0.
+
+4.  AIC is 14444
+
+```{r}
+# plot of logistic regression model
+plot(full_reg, which=4, id.n=6, col=3)
+plot(step_reg, which=4, id.n=6, col=4)
+```
+
+*Interpretation*\
+Make a scatter plot of full and step wise regression models. There are no data points over Cook's distance, neither the full model nor the backward selection model contain any data points that are particularly influential.
+
+*Test Accuracy, Precision and other parameters of step-wise logistic regression*
+
+```{r, warning=FALSE}
+# Confusion matrix of step-wise logistic regression and it's parameters
+resp_stp_train <- predict(step_reg, newdata=train, type="response")   
+class_stp_train <- ifelse(resp_stp_train > 0.5,"1","0")           
+CF_stp_train <- table(train$RES, class_stp_train,
+                dnn=list("Actual","Predicted")) 
+
+resp_stp_test <- predict(step_reg, newdata=test, type="response")   
+class_stp_test <- ifelse(resp_stp_test > 0.5,"1","0")           
+CF_stp_test <- table(test$RES, class_stp_test,
+                dnn=list("Actual","Predicted")) 
+
+stp_reg_trn_acc <- 
+  (CF_stp_train[1,1] + CF_stp_train[2,2])/sum(CF_stp_train)
+stp_reg_trn_prv <- 
+  (CF_stp_train[2,1] + CF_stp_train[2,2])/sum(CF_stp_train)
+stp_reg_trn_miss_rate <- 
+  (CF_stp_train[2,1] + CF_stp_train[1,2])/sum(CF_stp_train)
+
+stp_reg_tst_acc <- 
+  (CF_stp_test[1,1] + CF_stp_test[2,2])/sum(CF_stp_test)
+stp_reg_tst_prv <- 
+  (CF_stp_test[2,1] + CF_stp_test[2,2])/sum(CF_stp_test)
+stp_reg_tst_miss_rate <- 
+  (CF_stp_test[2,1] + CF_stp_test[1,2])/sum(CF_stp_test)
+
+print("Model: Step wise logistic regression model")
+print("Confusion matrix of test data")
+CF_stp_train
+cat("Accuracy of the train dataset", round(stp_reg_trn_acc, 2), "\n")
+cat("Prevalence of the train dataset", round(stp_reg_trn_prv, 2), "\n")
+cat("Missclassification rate of the train dataset", 
+    round(stp_reg_trn_miss_rate, 2), "\n")
+
+print("Confusion matrix of test data")
+CF_stp_test
+cat("Accuracy of the test dataset", round(stp_reg_tst_acc, 2), "\n")
+cat("Prevalence of the train dataset", round(stp_reg_tst_prv, 2), "\n")
+cat("Missclassification rate of the train dataset",
+    round(stp_reg_tst_miss_rate, 2))
+```
+
+| Parameters              | Train Dataset | Test Dataset |
+|-------------------------|---------------|--------------|
+| Accuracy                | 87%           | 88%          |
+| Prevalence              | 50%           | 51%          |
+| Missclassification rate | 13%           | 12%          |
+
+: Analysis of step-wise logistic regression confusion matrix
+
+```{r}
+# calculate processing time of step wise logistic regression model
+stp_reg_time <- end_stp - start_stp
+stp_reg_time
+```
+
+*Interpretation*
+
+Time to run a step wise logistic regression is 1.25 seconds.
+
+***Surprisingly, the full and step-wise logistic regression models have the same AIC and Residual deviance. So, I will try another model for better model and accuracy.***
+
+
+```{r, results='hide', message=FALSE, warning=FALSE}
+# install and attach packages for Naive Bayes, Recursive Partitioning, 
+# and Neural Network Classifications
+
+if(!require(tinytex)){install.packages("tinytex")}
+library("tinytex")
+
+if(!require(pastecs)){install.packages("pastecs")}
+library("pastecs")
+
+if(!require(lattice)){install.packages("lattice")}
+library("lattice")
+
+if(!require(vcd)){install.packages("vcd")}
+library("vcd")
+
+if(!require(HSAUR)){install.packages("HSAUR")}
+library("HSAUR")
+
+if(!require(rmarkdown)){install.packages("rmarkdown")}
+library("rmarkdown")
+
+if(!require(ggplot2)){install.packages("ggplot2")}
+library("ggplot2")
+
+if(!require(klaR)){install.packages("klaR")}
+library("klaR")
+
+if(!require(MASS)){install.packages("MASS")}
+library("MASS")
+
+if(!require(partykit)){install.packages("partykit")}
+library("partykit")
+
+if(!require(nnet)){install.packages("nnet")}
+library("nnet")
+```
+
+
+*Let's try Naive Bayesian Algorithm*
+
+```{r}
+# Naive Bayes classification
+start_naive <- Sys.time()
+
+naive <- NaiveBayes(RES ~ . , data = train, na.action=na.omit)
+
+end_naive <- Sys.time()
+```
+
+*Interpretation*\
+Utilizing the "NaiveBayes" function, create a Naive Bayesian classification model with the train dataset. All other variables as independent and RES would be the target variable. Calculate the processing time of the Naive Bayesian classification using "Sys.time" function.
+
+### 2(2)
+
+```{r, warning=FALSE}
+# Confusion matrix of Naive Bayesian and it's parameters
+pred_naive_train <- predict(naive, newdata=train)
+ 
+CF_naive_trn <- table(Actual=train$RES, Predicted=pred_naive_train$class)
+
+pred_naive_test <- predict(naive, newdata=test)
+
+CF_naive_tst <- table(Actual=test$RES, Predicted=pred_naive_test$class)
+
+nb_trn_acc <- 
+  (CF_naive_trn[1,1] + CF_naive_trn[2,2])/sum(CF_naive_trn)
+nb_tst_acc <- 
+  (CF_naive_tst[1,1] + CF_naive_tst[2,2])/sum(CF_naive_tst)
+
+nb_trn_prv <- 
+  (CF_naive_trn[2,1] + CF_naive_trn[2,2])/sum(CF_naive_trn)
+nb_tst_prv <- 
+  (CF_naive_tst[2,1] + CF_naive_tst[2,2])/sum(CF_naive_tst)
+
+
+nb_trn_miss_rate <- 
+  (CF_naive_trn[2,1] + CF_naive_trn[1,2])/sum(CF_naive_trn)
+nb_tst_miss_rate <- 
+  (CF_naive_tst[2,1] + CF_naive_tst[1,2])/sum(CF_naive_tst)
+
+
+print("Model: Naive Bayesian classification model")
+print("Confusion matrix of train data")
+CF_naive_trn
+cat("Accuracy of the train dataset", round(nb_trn_acc, 2), "\n")
+cat("Prevalence of the train dataset", round(nb_trn_prv, 2), "\n")
+cat("Missclassification rate of the train dataset", 
+    round(nb_trn_miss_rate, 2), "\n")
+
+
+print("Confusion matrix of test data")
+CF_naive_tst
+cat("Accuracy of the train dataset", round(nb_tst_acc, 2), "\n")
+cat("Prevalence of the train dataset", round(nb_tst_prv, 2), "\n")
+cat("Missclassification rate of the train dataset", 
+    round(nb_tst_miss_rate, 2), "\n")
+```
+
+*Interpretation*\
+Create a prediction variable using the train dataset and the predict function, then create a corresponding variable for the test dataset. For making confusion matrix, set actual and predicted parameter in the table function for both the dataset. Using confusion matrix, calculate accuracy, prevalence, and missclassification rate.
+
+| *Parameters*            | *Train dataset* | *Test dataset* |
+|-------------------------|-----------------|----------------|
+| Accuracy                | 87%             | 87%            |
+| Prevalence              | 50%             | 51%            |
+| Missclassification rate | 13%             | 13%            |
+
+: Analysis of Confusion Matrix of Naive Bayesian
+
+Therefore, our Naive Bayesian classification model is good and not overfitting or underfitting.
+
+### 2(3)
+
+```{r}
+# calculate processing time of Naive Bayesian classification model
+naive_time <- end_naive - start_naive
+naive_time
+```
+
+*Interpretation*\
+Calculate the computation time for running the Naive Bayesian classification model, which is 0.028 seconds.
+
+*Let's try Neural Network Algorithm, we may get better accuracy*
+
+```{r}
+# Neural Network model
+start_nn <- Sys.time()
+
+set.seed(9187)
+nn <- nnet(RES ~ .,
+          data=train,
+          size=4,
+          rang=0.1,
+          maxit=1500,
+          trace=FALSE)
+
+end_nn <- Sys.time()
+```
+
+*Interpretation*\
+RES would be the target variable, while all other variables would be considered independent variables. Set numerous parameters, such as size, the number of nodes in a single hidden layer of the model, maxit, the maximum number of optimisation iterations, and rang, the range of random weights provided to the connections between the input and hidden layers. Determine the Neural Network classification model's processing duration.
+
+```{r}
+# Confusion matrix of Neural Network and it's parameters
+pred_nn_train <- predict(nn, newdata=train, type="class")
+CF_nn_trn <- table(Actual=train$RES, Predicted=pred_nn_train)
+
+pred_nn_test <- predict(nn, newdata=test, type="class")
+CF_nn_tst <- table(Actual=test$RES, Predicted=pred_nn_test)
+
+nn_trn_acc <- 
+  (CF_nn_trn[1,1] + CF_nn_trn[2,2])/sum(CF_nn_trn)
+nn_trn_prv <- 
+  (CF_nn_trn[2,1] + CF_nn_trn[2,2])/sum(CF_nn_trn)
+nn_trn_miss_rate <- 
+  (CF_nn_trn[2,1] + CF_nn_trn[1,2])/sum(CF_nn_trn)
+
+nn_tst_acc <- 
+  (CF_nn_tst[1,1] + CF_nn_tst[2,2])/sum(CF_nn_tst)
+nn_tst_prv <- 
+  (CF_nn_tst[2,1] + CF_nn_tst[2,2])/sum(CF_nn_tst)
+nn_tst_miss_rate <- 
+  (CF_nn_tst[2,1] + CF_nn_tst[1,2])/sum(CF_nn_tst)
+
+
+print("Model: Neural Network model")
+print("Confusion matrix of test data")
+CF_nn_trn
+cat("Accuracy of the train dataset", round(nn_trn_acc, 2), "\n")
+cat("Prevalence of the train dataset", round(nn_trn_prv, 2), "\n")
+cat("Missclassification rate of the train dataset", 
+    round(nn_trn_miss_rate, 2), "\n")
+
+print("Confusion matrix of test data")
+CF_nn_tst
+cat("Accuracy of the train dataset", round(nn_tst_acc, 2), "\n")
+cat("Prevalence of the train dataset", round(nn_tst_prv, 2), "\n")
+cat("Missclassification rate of the train dataset", 
+    round(nn_tst_miss_rate, 2), "\n")
+```
+
+*Interpretation*\
+Create a prediction variable using the train dataset and the predict function for neural network, then create a corresponding variable for the test dataset. For making a a confusion matrix, set actual and predicted parameter in the table function for both the dataset. Using confusion matrix, calculate accuracy, prevalence, and missclassification rate.
+
+| Parameters              | Train Dataset | Test Dataset |
+|-------------------------|---------------|--------------|
+| Accuracy                | 98%           | 98%          |
+| Prevalence              | 50%           | 51%          |
+| Missclassification rate | 2%            | 2%           |
+
+: Analysis of Neural Network Confusion Matrix
+
+```{r}
+# calculate processing time of Neural Network classification model
+nn_time <- end_nn - start_nn
+nn_time
+```
+
+*Interpretation* Time to run a neural network model is 32.40 seconds.
+
+Read out prediction
+
+```{r}
+# Import test dataset to test the efficiency and accuracy of the model 
+test_data <- read.table("PROG8430-23W-Final-test.txt", header = TRUE, sep = ",")
+test_data <- as.data.frame(test_data)
+test_data <- test_data[, -which(names(test_data) == "X")]
+head(test_data, 5)
+```
+
+*Interpretation*\
+read test file "PROG8430-23W-Final-test", convert it into dataframe. Add initials to the column name. Remove X column because it does not make any analytical information.
+
+```{r}
+# Convert character variable to factor
+test_data <- as.data.frame(unclass(test_data), stringsAsFactors = TRUE)
+```
+
+*Interpretation*\
+Convert character variables to factor variabls.
+
+```{r}
+# Prediction on test dataset and export it into txt dataset
+pred <- predict(nn, newdata=test_data, type="class")
+pred <- as.factor(ifelse(pred == 1, '>$50K','<=$50K'))
+test_fin <- cbind(test_data, pred)
+write.csv(test_fin, "PROG8430-23W-Final.txt")
+```
+
+*Interpretation*\
+Make prediction variables using the neural network model and combine them with the test file. Write an output file with predictions.
