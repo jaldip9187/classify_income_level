@@ -23,4 +23,10 @@ Education	Education Level of subject
 Marital	Marital Status of the subject
 Occupation	Occupation type of the subject
 
+**Instructions**
 
+1. Download a project as a ZIP file.
+2. You can check pdf files without installing anything.
+3. Install R studio on your laptop to run the RMD file.
+4. Change the location of the train and test dataset file to run successfully .Rmd file.
+5. It includes four machine learning algorithms, so give it time to run.s
